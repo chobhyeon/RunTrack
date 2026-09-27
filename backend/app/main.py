@@ -1,7 +1,10 @@
 """
 RunTrack Backend - FastAPI 주 애플리케이션
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import shoes, running, weather, users
 from app.config import settings
@@ -12,6 +15,16 @@ app = FastAPI(
     description="AI 기반 맞춤형 러닝 조언 앱",
     version="0.1.0"
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    # Do not echo submitted passwords, including malformed request bodies.
+    errors = [
+        {key: value for key, value in error.items() if key not in {"input", "ctx"}}
+        for error in exc.errors()
+    ]
+    return JSONResponse(status_code=422, content=jsonable_encoder({"detail": errors}))
 
 # CORS 설정
 app.add_middleware(

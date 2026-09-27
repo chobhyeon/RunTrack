@@ -23,9 +23,6 @@ class ShoeRecommendationService:
     ) -> dict:
         """사용자의 신체 정보와 선호도를 바탕으로 AI가 신발을 추천"""
         pass
-                "message": f"JSON 파싱 오류: {str(e)}",
-                "raw_response": response_text
-            }
 
 # 서비스 인스턴스
 shoe_recommendation_service = ShoeRecommendationService()

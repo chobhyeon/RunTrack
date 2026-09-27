@@ -17,7 +17,7 @@ class User(Base):
     
     # 신체 정보
     weight_kg = Column(Float)
-    height_cm = Column(Integeneutralr)
+    height_cm = Column(Integer)
     foot_size = Column(String)  # "280mm", "US 10" 등
     foot_width = Column(String)  # "narrow", "regular", "wide"
     arch_type = Column(String)  # "low", "", "high"

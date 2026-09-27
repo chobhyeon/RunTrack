@@ -221,6 +221,18 @@ pytest
 pytest --cov=app tests/  # 커버리지 포함
 ```
 
+위 명령은 백엔드 가상환경을 활성화한 상태에서 실행합니다.
+기존 `backend/.venv`를 사용하는 Windows PowerShell에서는
+`.\.venv\Scripts\Activate.ps1`로 활성화합니다.
+테스트는 별도의 SQLite DB와 `get_db` 의존성 오버라이드를 사용합니다.
+통합 테스트는 요청마다 새 세션을 열고, 테스트용 JWT 키를 사용하며,
+설정된 실제 DB로 연결을 시도하면 실패하도록 차단합니다.
+
+`tests/test_auth_integration.py`는 회원가입 → 로그인 → 내 정보 조회 → 수정 →
+재조회·저장 확인을 검증합니다. 중복 가입, 잘못된 로그인 정보,
+누락·만료·변조 토큰, 삭제된 사용자의 토큰 거부와 비밀번호·해시 미노출도 검증합니다.
+SQLite 테스트 결과는 PostgreSQL 전용 동작이나 실제 HTTP 서버·Android 연동 검증을 포함하지 않습니다.
+
 ### Frontend
 ```bash
 cd android
@@ -237,6 +249,90 @@ cd android
 - `POST /api/users/login` - 로그인
 - `GET /api/users/me` - 내 정보 조회
 - `PUT /api/users/me` - 내 정보 수정
+
+#### 회원가입 (구현 완료)
+
+`POST /api/users/register`는 인증 없이 `application/json` 요청을 받습니다.
+필수 필드는 `username`, `email`, `password`이며 빈 문자열과 공백만 있는 값은 거부합니다.
+비밀번호는 입력 그대로 해싱하며 응답에는 비밀번호나 해시를 포함하지 않습니다.
+선택 필드는 `weight_kg`, `height_cm`, `foot_size`, `foot_width`, `arch_type`,
+`running_style`, `budget_won`, `preferred_brands`이며 생략하거나 `null`로 보낼 수 있습니다.
+
+요청 예시:
+
+```json
+{"username": "runner01", "email": "runner@example.com", "password": "example-password", "preferred_brands": ["Nike"]}
+```
+
+성공 응답: `201 Created`
+
+```json
+{
+  "id": 1,
+  "username": "runner01",
+  "email": "runner@example.com",
+  "weight_kg": null,
+  "height_cm": null,
+  "foot_size": null,
+  "foot_width": null,
+  "arch_type": null,
+  "running_style": null,
+  "budget_won": null,
+  "preferred_brands": ["Nike"],
+  "created_at": "2026-09-28T10:00:00",
+  "updated_at": "2026-09-28T10:00:00"
+}
+```
+
+- `409 Conflict`: 사용자명 또는 이메일 중복. `{"detail": "Username or email already exists"}`
+- `422 Unprocessable Entity`: 필수 필드 누락, 빈 값 또는 잘못된 타입. `detail` 배열에 오류 위치·유형·메시지를 반환하고 입력값은 제외합니다.
+
+비밀번호는 랜덤 salt를 사용한 PBKDF2-SHA256 해시로 저장합니다.
+이메일 형식 및 비밀번호 복잡도 검증은 아직 추가하지 않았습니다.
+상세 계약은 [인증 API 계약](backend/docs/AUTH_API_CONTRACT.md)을 참고하세요.
+
+#### 로그인 및 내 정보 (구현 완료)
+
+`POST /api/users/login` 요청:
+
+```json
+{"username": "runner01", "password": "example-password"}
+```
+
+`200 OK` 응답 (현재 30분 설정 기준):
+
+```json
+{"access_token": "<jwt>", "token_type": "bearer", "expires_in": 1800}
+```
+
+`expires_in`은 초 단위이며 JWT의 `exp - iat`와 일치합니다.
+사용자가 없거나 비밀번호가 틀리면 동일한 `401` 응답
+`{"detail": "Invalid username or password"}`를 반환합니다.
+입력 검증 실패는 `422`입니다.
+
+`GET /api/users/me` 및 `PUT /api/users/me` 요청에는 다음 헤더를 넣습니다.
+
+```http
+Authorization: Bearer <jwt>
+```
+
+GET은 `200`과 회원가입 응답과 같은 `UserResponse`를 반환합니다.
+PUT 요청 예시:
+
+```json
+{"weight_kg": 66.5, "height_cm": 175, "preferred_brands": ["아디다스"]}
+```
+
+PUT은 `200`과 수정된 `UserResponse`를 반환합니다.
+회원가입의 선택 필드만 수정할 수 있으며 생략한 값은 유지하고 `null`은 비웁니다.
+`id`, `user_id`, `username`, `email`, `password` 등 허용하지 않는 필드는 `422`로 거부합니다.
+다른 계정의 ID를 지정해 수정할 수 없습니다. 모든 사용자 응답에서 비밀번호·해시는 제외합니다.
+
+토큰 누락·만료·변조 또는 사용자 삭제 시 두 /me API는
+`401`, `{"detail": "Could not validate credentials"}`와
+`WWW-Authenticate: Bearer` 헤더를 반환합니다.
+`/docs`에서 로그인 후 Authorize에 토큰 문자열만 입력하면 보호된 API를 호출할 수 있습니다.
+신발·러닝 API 적용 방법은 [인증 의존성 가이드](backend/docs/AUTH_DEPENDENCIES.md)를 참고하세요.
 
 ### 신발 관련
 - `POST /api/shoes` - 신발 등록
