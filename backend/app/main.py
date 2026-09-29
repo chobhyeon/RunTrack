@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import shoes, running, weather, users
+from app.api.routes import shoes, running, weather, users, recommendations
 from app.config import settings
 
 # FastAPI 앱 초기화
@@ -40,6 +40,7 @@ app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(shoes.router, prefix="/api/shoes", tags=["Shoes"])
 app.include_router(running.router, prefix="/api/running", tags=["Running"])
 app.include_router(weather.router, prefix="/api/weather", tags=["Weather"])
+app.include_router(recommendations.router, prefix="/api/recommendations", tags=["Recommendations"])
 
 @app.get("/")
 async def root():

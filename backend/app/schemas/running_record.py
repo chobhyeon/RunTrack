@@ -1,7 +1,7 @@
 """
 러닝 기록 Pydantic 스키마
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from typing import Optional
 
@@ -25,9 +25,11 @@ class RunningRecordCreate(RunningRecordBase):
     notes: Optional[str] = None
 
 class RunningRecordUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: Optional[str] = None
     description: Optional[str] = None
-    shoe_id: Optional[int] = None
+    shoe_id: Optional[int] = Field(default=None, gt=0)
     feeling: Optional[str] = None
     notes: Optional[str] = None
 
