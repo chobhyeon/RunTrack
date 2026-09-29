@@ -1,0 +1,51 @@
+name: Lint Check
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/lint.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install flake8
+      run: |
+        pip install flake8
+    
+    - name: Run flake8 - Code style check
+      run: |
+        # exit-zero treats all errors as warnings
+        # E501: line too long
+        # W503: line break before binary operator
+        flake8 backend/app \
+          --count \
+          --select=E9,F63,F7,F82 \
+          --show-source \
+          --statistics \
+          --max-line-length=100 \
+          --ignore=W503,E501
+    
+    - name: Check for basic errors
+      run: |
+        # This will be reported by flake8 with exit code 1
+        flake8 backend/app \
+          --count \
+          --exit-zero \
+          --max-complexity=10 \
+          --max-line-length=100 \
+          --statistics

@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  # Backend FastAPI 서버
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: runtrack-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://runtrack_user:runtrack_password@db:5432/runtrack
+      REDIS_URL: redis://redis:6379
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - runtrack-network
+    restart: unless-stopped
+
+  # PostgreSQL 데이터베이스
+  db:
+    image: postgres:15-alpine
+    container_name: runtrack-db
+    environment:
+      POSTGRES_DB: runtrack
+      POSTGRES_USER: runtrack_user
+      POSTGRES_PASSWORD: runtrack_password
+      POSTGRES_INITDB_ARGS: "-c max_connections=100"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Optional: Initialize database with SQL script
+      # - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U runtrack_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - runtrack-network
+    restart: unless-stopped
+
+  # Redis 캐시 서버
+  redis:
+    image: redis:7-alpine
+    container_name: runtrack-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass runtrack_redis_password
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - runtrack-network
+    restart: unless-stopped
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# Custom network for inter-service communication
+networks:
+  runtrack-network:
+    driver: bridge
